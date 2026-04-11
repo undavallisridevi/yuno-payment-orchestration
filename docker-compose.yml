@@ -43,9 +43,9 @@ services:
     container_name: yuno-redis
     ports:
       - "6379:6379"
- #   volumes:
- #     - redis-data:/data
+    volumes:
+      - redis-data:/data
 volumes:
   postgres-data:
-#  redis-data:      
+  redis-data:      
       

@@ -1,6 +1,6 @@
 package com.yuno.payment.dto;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,15 +10,16 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PaymentRequest {
 
-    @NotNull
+    @NotNull(message = "Amount is required")
+    @Positive(message = "Amount must be greater than 0")
     private Double amount;
 
-    @NotNull
+    @NotBlank(message = "Currency is required")
     private String currency;
 
-    @NotNull
+    @NotBlank(message = "Method is required")
     private String method;
 
-    @NotNull
+    @NotBlank(message = "Idempotency key is required")
     private String idempotencyKey;
 }

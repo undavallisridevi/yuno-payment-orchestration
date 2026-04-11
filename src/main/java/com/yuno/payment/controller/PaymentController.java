@@ -12,6 +12,7 @@ import com.yuno.payment.dto.PaymentRequest;
 import com.yuno.payment.dto.PaymentResponse;
 import com.yuno.payment.service.PaymentService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -23,8 +24,9 @@ public class PaymentController {
 
 
     @PostMapping
-    public ResponseEntity<PaymentResponse> createPayment(@RequestBody PaymentRequest request) {
-    	return paymentService.createPayment(request);
+    public ResponseEntity<PaymentResponse> createPayment(
+            @Valid @RequestBody PaymentRequest request) {
+        return paymentService.createPayment(request);
     }
 
 
