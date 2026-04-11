@@ -1,8 +1,10 @@
 package com.yuno.payment.service.impl;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -16,17 +18,35 @@ import com.yuno.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 
 @Service
-@RequiredArgsConstructor
+
 public class PaymentServiceImpl implements PaymentService {
 	
 
     private final PaymentRepository paymentRepository;
     private final PaymentOrchestrator orchestrator;
+    private final RedisTemplate<String, Object> redisTemplate;
+    
+    public PaymentServiceImpl(PaymentRepository paymentRepository,
+            PaymentOrchestrator orchestrator,
+            RedisTemplate<String, Object> redisTemplate) {
+this.paymentRepository = paymentRepository;
+this.orchestrator = orchestrator;
+this.redisTemplate = redisTemplate;
+}
 
     @Override
     public ResponseEntity<PaymentResponse> createPayment(PaymentRequest request) {
 
-        // STEP 1: Check idempotency
+        String redisKey = "payment:" + request.getIdempotencyKey();
+
+        //STEP 1: Check Redis (FAST PATH)
+        PaymentResponse cached = (PaymentResponse) redisTemplate.opsForValue().get(redisKey);
+
+        if (cached != null) {
+            return ResponseEntity.ok(cached); // 200
+        }
+
+        // STEP 2: Check DB
         var existing = paymentRepository.findByIdempotencyKey(request.getIdempotencyKey());
 
         if (existing.isPresent()) {
@@ -38,17 +58,18 @@ public class PaymentServiceImpl implements PaymentService {
                     .provider(payment.getProvider())
                     .build();
 
-            //CASE: Still processing
+            // Save to Redis for future fast access
+            redisTemplate.opsForValue().set(redisKey, response);
+
             if ("PROCESSING".equals(payment.getStatus())) {
                 return ResponseEntity.accepted().body(response); // 202
             }
 
-            // CASE: Already completed (SUCCESS / FAILED)
             return ResponseEntity.ok(response); // 200
         }
 
         try {
-            // STEP 2: Create new payment
+            // STEP 3: Create payment
             Payment payment = Payment.builder()
                     .amount(request.getAmount())
                     .currency(request.getCurrency())
@@ -61,7 +82,7 @@ public class PaymentServiceImpl implements PaymentService {
 
             Payment saved = paymentRepository.save(payment);
 
-            // STEP 3: Orchestration
+            // STEP 4: Orchestrate
             saved = orchestrator.process(saved);
 
             paymentRepository.save(saved);
@@ -72,15 +93,15 @@ public class PaymentServiceImpl implements PaymentService {
                     .provider(saved.getProvider())
                     .build();
 
-            //First time creation → 201
+            // STEP 5: Cache result in Redis
+            redisTemplate.opsForValue().set(redisKey, response, Duration.ofMinutes(10));
             return ResponseEntity.status(201).body(response);
 
         } catch (DataIntegrityViolationException e) {
 
-            // STEP 4: Race condition handling
             Payment payment = paymentRepository
                     .findByIdempotencyKey(request.getIdempotencyKey())
-                    .orElseThrow(() -> new RuntimeException("Payment exists but not found"));
+                    .orElseThrow();
 
             PaymentResponse response = PaymentResponse.builder()
                     .paymentId(payment.getId())
@@ -88,7 +109,9 @@ public class PaymentServiceImpl implements PaymentService {
                     .provider(payment.getProvider())
                     .build();
 
-            return ResponseEntity.ok(response); // 200
+            redisTemplate.opsForValue().set(redisKey, response);
+
+            return ResponseEntity.ok(response);
         }
     }
     

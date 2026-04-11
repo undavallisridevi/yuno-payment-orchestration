@@ -2,6 +2,8 @@ package com.yuno.payment.routing;
 
 import org.springframework.stereotype.Component;
 
+import com.yuno.payment.exception.InvalidPaymentMethodException;
+
 @Component
 public class PaymentRouterImpl implements PaymentRouter {
 
@@ -10,7 +12,7 @@ public class PaymentRouterImpl implements PaymentRouter {
         return switch (method) {
             case "CARD" -> "PROVIDER_A";
             case "UPI" -> "PROVIDER_B";
-            default -> throw new RuntimeException("Unsupported payment method");
+            default -> throw new InvalidPaymentMethodException("Unsupported payment method");
         };
     }
 }
