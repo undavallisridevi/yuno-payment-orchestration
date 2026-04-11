@@ -296,7 +296,8 @@ Test coverage includes:
 
 * Public GitHub repository
 * Dockerized application
-* Test case documentation
+* Test case documentation (TEST_CASES.md)
+* Prompts documentation (PROMPTS.md)
 
 ---
 
