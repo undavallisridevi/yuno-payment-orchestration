@@ -13,8 +13,9 @@ It reflects architectural decisions, trade-offs, and implementation flow.
 ## Prompt
 
 Design a scalable payment orchestration system with routing, retry, and idempotency for the following architecture.
+Requests flow from controller to an orchestration layer that manages idempotency, retries, and state, then routes dynamically to external providers via connectors. The system persists transactions in a database and prevents duplicates using an idempotency store like Redis, ensuring scalability, reliability, and fault tolerance using Spring Boot.
 
-## Required Architecture
+## Resulting Architecture
 
 ```text
 Client
